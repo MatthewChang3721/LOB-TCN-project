@@ -1,0 +1,7 @@
+# Google Cloud TPU v6e Dependencies
+--find-links https://storage.googleapis.com/jax-releases/libtpu_releases.html
+
+jax[tpu]
+tensorflow-cpu
+flax
+optax

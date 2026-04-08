@@ -18,7 +18,8 @@ class TCNBlock(nn.Module):
             features=self.features,
             kernel_size=(self.kernel_size,),
             kernel_dilation=(self.dilation,),
-            padding='CAUSAL'
+            padding='CAUSAL',
+            dtype = jnp.bfloat16
         )(x)
         res = nn.relu(res)
         res = nn.Dropout(rate = self.dropout_rate)(res, deterministic= not train)
@@ -55,14 +56,14 @@ class TCN(nn.Module):
             
         # Slice the last timestamp
         Output = x[:, -1, :]
-        logits = nn.Dense(features=self.num_classes)(Output)
-        return jnp.asarray(logits, jnp.float32)
+        logits = nn.Dense(features=self.num_classes, dtype = jnp.float32)(Output)
+        return logits
 
 # initiate a train weight matrix for TCN
 def init_train_state(rng, model, learning_rate = 0.001):
     params_rng, dropout_rng = jax.random.split(rng)
     
-    dummy_x = jnp.ones((1, 100, 40)) 
+    dummy_x = jnp.ones((1, 127, 40)) 
     variables = model.init(
         {'params': params_rng,'dropout': dropout_rng},
         dummy_x,
@@ -114,7 +115,7 @@ if __name__ == "__main__":
     
     state = init_train_state(rng, tcn_model_test, learning_rate=1e-3)
     
-    x_test = jnp.ones((1,100,40),dtype = jnp.bfloat16)
+    x_test = jnp.ones((1,127,40),dtype = jnp.bfloat16)
     y_test = jnp.zeros((1,), dtype = jnp.int32)
 
     rng, step_rng = jax.random.split(rng)

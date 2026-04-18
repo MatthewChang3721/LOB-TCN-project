@@ -1,9 +1,11 @@
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
+import flax
 from flax.training import train_state
 import optax
 from typing import Sequence
+import functools
 
 class TCNBlock(nn.Module):
     features: int
@@ -99,7 +101,7 @@ def train_step(state, batch_x, batch_y, dropout_rng):
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     
     (loss, logits), grads = grad_fn(state.params)
-    # TPU 优化：如果是多机多卡，这里需要对梯度进行 all-reduce
+    # calucation for multiple TPU:
     # grads = jax.lax.pmean(grads, axis_name='batch') 
 
     state = state.apply_gradients(grads=grads)
@@ -109,15 +111,56 @@ def train_step(state, batch_x, batch_y, dropout_rng):
     
     return state, loss, accuracy
 
+# this function is for calculation on multiple tpus. "batch": this is the sychronize columns between tpus
+@functools.partial(jax.pmap, axis_name='batch')
+def train_step_tpu(state, batch_x, batch_y, dropout_rng):
+    # loss function remains the same
+    def loss_fn(params):
+        logits = state.apply_fn(
+            {'params': params}, 
+            batch_x,
+            train = True,
+            rngs = {'dropout':dropout_rng}            
+        )
+        
+        loss = optax.softmax_cross_entropy_with_integer_labels(
+            logits=logits, labels=batch_y
+        ).mean()
+        
+        return loss, logits
+    
+    # 1. Functional Transformation: Wrap the loss function with JAX's automatic differentiation engine.
+    grad_fn = jax.value_and_grad(loss_fn, has_aux=True) 
+    # 2. Execution: Compute the actual values by passing the parameter matrix from the current state.
+    (loss, logits), grads = grad_fn(state.params) 
+    
+    # Cross-Device Synchronization (All-Reduce)
+    # Average the gradients across all 4 TPU cores before applying them.
+    grads = jax.lax.pmean(grads, axis_name='batch')
+
+    state = state.apply_gradients(grads=grads)
+
+    # Calculate metrics
+    pred = jnp.argmax(logits, axis=-1)
+    accuracy = jnp.mean(pred == batch_y)
+    
+    # 3. Synchronize metrics across devices for accurate logging
+    loss = jax.lax.pmean(loss, axis_name='batch')
+    accuracy = jax.lax.pmean(accuracy, axis_name='batch')
+    
+    return state, loss, accuracy
+
 if __name__ == "__main__":
     rng = jax.random.PRNGKey(42) 
     tcn_model_test = TCN()
     
-    state = init_train_state(rng, tcn_model_test, learning_rate=1e-3)
+    state,dropout_rng = init_train_state(rng, tcn_model_test, learning_rate=1e-3)
+
+    state = flax.jax_utils.replicate(state)
     
     x_test = jnp.ones((1,127,40),dtype = jnp.bfloat16)
     y_test = jnp.zeros((1,), dtype = jnp.int32)
 
     rng, step_rng = jax.random.split(rng)
-    state, loss, accuracy = train_step(state, x_test, y_test, step_rng)
+    state, loss, accuracy = train_step_tpu(state, x_test, y_test, step_rng)
     print(f"Loss: {loss}, Accuracy: {accuracy}")

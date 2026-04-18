@@ -144,7 +144,7 @@ def train_step_tpu(state, batch_x, batch_y, dropout_rng):
     pred = jnp.argmax(logits, axis=-1)
     accuracy = jnp.mean(pred == batch_y)
     
-    # 3. Synchronize metrics across devices for accurate logging
+    # Synchronize metrics across devices for accurate logging
     loss = jax.lax.pmean(loss, axis_name='batch')
     accuracy = jax.lax.pmean(accuracy, axis_name='batch')
     
@@ -154,13 +154,13 @@ if __name__ == "__main__":
     rng = jax.random.PRNGKey(42) 
     tcn_model_test = TCN()
     
-    state,dropout_rng = init_train_state(rng, tcn_model_test, learning_rate=1e-3)
+    state, dropout_rng = init_train_state(rng, tcn_model_test, learning_rate=1e-3)
+    dropout_rng = jax.random.split(dropout_rng, 4)
 
     state = flax.jax_utils.replicate(state)
     
-    x_test = jnp.ones((1,127,40),dtype = jnp.bfloat16)
-    y_test = jnp.zeros((1,), dtype = jnp.int32)
+    x_test = jnp.ones((4,4,127,40),dtype = jnp.bfloat16)
+    y_test = jnp.zeros((4,4), dtype = jnp.int32)
 
-    rng, step_rng = jax.random.split(rng)
-    state, loss, accuracy = train_step_tpu(state, x_test, y_test, step_rng)
+    state, loss, accuracy = train_step_tpu(state, x_test, y_test, dropout_rng)
     print(f"Loss: {loss}, Accuracy: {accuracy}")

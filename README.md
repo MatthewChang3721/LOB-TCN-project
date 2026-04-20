@@ -48,3 +48,32 @@ Paradoxically, the 4-core sharded training is significantly slower than the sing
 
 3. **Missing Asynchronous Pipeline:**
    The TPUs are currently "starving". They compute the batch in milliseconds, but then sit idle waiting for the CPU to prepare and send the next batch.
+
+# JAX Distributed Training Experiment 1: pmap & Finite Data Streams
+
+## 1. Architecture Logic
+This experiment implements a standard multi-core parallel training loop using `jax.pmap` over a finite dataset (one complete pass per epoch, no infinite `.repeat()`).
+
+### Data Distribution Flow
+* **CPU:** Extracts a complete batch from `tf.data.Dataset` and reshapes it to include the device dimension.
+* **pmap:** Intercepts the function call, strips the 0th dimension (device count = 4), and dispatches the data slices.
+* **TPU (4 Cores):** Receives the sliced data, performs independent forward/backward passes, and synchronizes gradients using `jax.lax.pmean`.
+
+### Required Code Adjustments
+To successfully parallelize the single-machine code across 4 TPU cores, three core adjustments are implemented:
+1.  **Data Reshaping:** Input tensors must be reshaped prior to device placement to match `(num_devices, batch_per_core, ...)`. E.g., `(4, 256, 127, 40)`.
+2.  **State Replication:** Model weights and optimizer states are duplicated across all 4 cores using `flax.jax_utils.replicate(state)`.
+3.  **RNG Splitting:** A unique random seed must be generated for each core per step using `jax.random.split(rng, 4)` to ensure dropout diversity.
+
+---
+
+## 2. Experimental Data
+
+| Metric / Parameter | Test 1 | Test 2 |
+| :--- | :--- | :--- |
+| **Global Batch Size** | 1024 | 4096 |
+| **Per-Core Batch Size** | 256 | 1024 |
+| **Steps per Epoch** | 38 | 9 |
+| **XLA Compile Time (Epoch 1)** | ~46.6s | ~32.5s |
+| **Pure Computation Time (Epoch 2/3)**| ~9.9s | ~3.2s |
+| **Loss Progression (Epoch 1 -> 3)** | 1.6960 -> 0.9570 -> 0.8866 | 3.2867 -> 1.4128 -> 1.1537 |

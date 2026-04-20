@@ -77,3 +77,25 @@ To successfully parallelize the single-machine code across 4 TPU cores, three co
 | **XLA Compile Time (Epoch 1)** | ~46.6s | ~32.5s |
 | **Pure Computation Time (Epoch 2/3)**| ~9.9s | ~3.2s |
 | **Loss Progression (Epoch 1 -> 3)** | 1.6960 -> 0.9570 -> 0.8866 | 3.2867 -> 1.4128 -> 1.1537 |
+
+# JAX Distributed Training Experiment 2: Auto-Sharding & Infinite Streams
+
+## 1. Architecture Logic
+- **Paradigm:** Implicit Sharding (SPMD) via `@jax.jit`.
+- **Data Pipeline:** Infinite stream using `.repeat()`, `as_numpy_iterator()`, and `prefetch`.
+- **Sharding Strategy:** `PositionalSharding` blueprint for automated partitioning (e.g., `(4, 1, 1)`).
+- **Data Movement:** Asynchronous `jax.device_put` for overlapping I/O and computation.
+- **Communication:** Automatic All-Reduce managed by the XLA compiler (no explicit `pmean`).
+
+## 2. Experimental Data
+
+| Metric / Parameter | Configuration A | Configuration B |
+| :--- | :--- | :--- |
+| **Global Batch Size** | 1024 | 4096 |
+| **Per-Core Batch Size** | 256 | 1024 |
+| **Total Steps** | 500 | 500 |
+| **Avg. Time per Step** | 0.0189s | 0.0790s |
+| **System Throughput** | 53,925 samples/sec | 51,819 samples/sec |
+| **Step 0 Latency (XLA Compile)** | 38.35s | 32.53s |
+| **Step 1 Latency (Secondary)** | 37.03s | 28.98s |
+| **Total Execution Time** | 84.85s | 97.61s |

@@ -81,7 +81,7 @@ def init_train_state(rng, model, learning_rate = 0.001):
         tx=tx,
     ), dropout_rng
 
-@jax.jit
+@functools.partial(jax.jit, donate_argnums=(0,))
 def train_step(state, batch_x, batch_y, dropout_rng):
     # loss function
     def loss_fn(params):

@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import jax
 
-def prepare_tcn_data(raw_data, batch_size = 1024, time_step = 127, shuffle = True, repeat = False):
+def prepare_tcn_data(raw_data, batch_size = 1024, time_step = 127, shuffle = True, repeat = False, buffer_size = 10000):
     # Extract features and label
     raw_data = raw_data.T
     features = raw_data[:,:40].astype(np.float32)
@@ -24,7 +24,7 @@ def prepare_tcn_data(raw_data, batch_size = 1024, time_step = 127, shuffle = Tru
 
     # Shuffle
     if shuffle:
-        dataset = dataset.shuffle(buffer_size = 10000)
+        dataset = dataset.shuffle(buffer_size = buffer_size)
 
     # Repeat
     if repeat:

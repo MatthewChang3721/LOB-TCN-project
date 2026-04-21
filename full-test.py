@@ -1,3 +1,10 @@
+import os
+import warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['JAX_PLATFORMS'] = 'tpu,cpu'
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+# Be quiet
+
 import numpy as np
 import tensorflow as tf
 import jax

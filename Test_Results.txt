@@ -1,0 +1,42 @@
+[
+    {
+        "Batch size": 256,
+        "Total wall time": 8.495028495788574,
+        "First step": 3.1647427082061768,
+        "Second step": 2.7569425106048584,
+        "Second per step": 0.005167355977866544,
+        "Samples per second": 49542.0
+    },
+    {
+        "Batch size": 1024,
+        "Total wall time": 88.67221426963806,
+        "First step": 39.87109112739563,
+        "Second step": 38.807443618774414,
+        "Second per step": 0.020067629565196823,
+        "Samples per second": 51027.0
+    },
+    {
+        "Batch size": 4096,
+        "Total wall time": 100.21391129493713,
+        "First step": 29.972543001174927,
+        "Second step": 29.76408052444458,
+        "Second per step": 0.08127969431589885,
+        "Samples per second": 50394.0
+    },
+    {
+        "Batch size": 16384,
+        "Total wall time": 214.11175417900085,
+        "First step": 25.511686086654663,
+        "Second step": 25.079644680023193,
+        "Second per step": 0.32835426388016664,
+        "Samples per second": 49897.0
+    },
+    {
+        "Batch size": 65536,
+        "Total wall time": 694.3845348358154,
+        "First step": 29.85339641571045,
+        "Second step": 29.839136838912964,
+        "Second per step": 1.2744819308859276,
+        "Samples per second": 51422.0
+    }
+]

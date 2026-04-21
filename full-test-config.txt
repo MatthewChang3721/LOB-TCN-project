@@ -1,0 +1,9 @@
+{
+    "test_name": "TPU_Phase2_Stress_Test",
+    "batch_size_list": [256, 1024, 4096, 16384, 65536],
+    "time_step": 127,
+    "buffer_size": 100000,
+    "learning_rate": 0.01,
+    "total_steps_per_test": 500,
+    "precision": "bfloat16"
+}

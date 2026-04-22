@@ -38,6 +38,7 @@ if config:
     TIME_STEP = config['time_step']
     BUFFER_SIZE = config['buffer_size']
     LR = config['learning_rate']
+    ALPHA = config['L2_regularization']
     TOTAL_STEPS = config['total_steps_per_test']
     
     print(f"Testing Batch sizes: {BATCH_SIZES}")
@@ -65,7 +66,7 @@ def test_for_batch(BATCH_SIZE):
     rng, dropout_rng = jax.random.split(rng)
     # Create Model and training state
     model = TCN()
-    state, dropout_rng = init_train_state(rng, model)
+    state, dropout_rng = init_train_state(rng, model, learning_rate = LR, alpha = ALPHA)
 
     # Data warmup
     next_batch = next(train_iter)
@@ -75,13 +76,15 @@ def test_for_batch(BATCH_SIZE):
     parallel_y = jax.device_put(parallel_y, y_sharding)
 
     start_time = time.time()
-    running_loss = 0.0
+    loss_history_futures = []
     XLA_time = 0.0
 
     print(f"--- Testing Batch Size: {BATCH_SIZE}. ---")
     for step in range(TOTAL_STEPS):
         # Calculation
         state, loss, acc = train_step(state, parallel_x, parallel_y, dropout_rng)
+
+        loss_history_futures.append(loss)
         
         # Asynchronous extraction
         next_batch = next(train_iter)
@@ -91,9 +94,6 @@ def test_for_batch(BATCH_SIZE):
         parallel_x = jax.device_put(cpu_x, x_sharding)
         parallel_y = jax.device_put(cpu_y, y_sharding)
         
-        # Returning Single Number
-        running_loss += loss.item()
-
         if step == 0:
             XLA_time = time.time() - start_time
         if step == 1:
@@ -101,7 +101,11 @@ def test_for_batch(BATCH_SIZE):
         if step % 50 == 0:
             print(f" Step {step:04d} | Loss: {loss.item():.4f} | Acc: {acc.item():.4f}")
 
+    loss_history = jax.device_get(loss_history_futures)
+    loss_history = [float(l) for l in loss_history]
     total_time = time.time() - start_time
+
+
     print(f"✅ Done {TOTAL_STEPS} Steps! Total time: {total_time:.2f}s")
     print(f'🚀 XLA Time + first step(approximate): {XLA_time}.')
     print(f'🚀 Second step: {XLA_time_2}.')
@@ -112,6 +116,7 @@ def test_for_batch(BATCH_SIZE):
     
     return {
         'Batch size': BATCH_SIZE,
+        'Loss history': loss_history,
         'Total wall time': total_time,
         'First step': XLA_time,
         'Second step': XLA_time_2,

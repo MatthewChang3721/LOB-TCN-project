@@ -62,7 +62,7 @@ class TCN(nn.Module):
         return logits
 
 # initiate a train weight matrix for TCN
-def init_train_state(rng, model, learning_rate = 0.001):
+def init_train_state(rng, model, learning_rate = 0.001, alpha = 0.001):
     params_rng, dropout_rng = jax.random.split(rng)
     
     dummy_x = jnp.ones((1, 127, 40)) 
@@ -73,7 +73,7 @@ def init_train_state(rng, model, learning_rate = 0.001):
     )
     params = variables['params'] 
 
-    tx = optax.adam(learning_rate)
+    tx = optax.adamw(learning_rate, weight_decay=alpha)
 
     return train_state.TrainState.create(
         apply_fn=model.apply,
